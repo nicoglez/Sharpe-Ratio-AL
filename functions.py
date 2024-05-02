@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from backtesting import backtesting
+from data import benchmark_SIC
 import optuna
 optuna.logging.disable_default_handler()
 
@@ -64,7 +65,7 @@ class OptimizePortfolioWeights:
 
         result = minimize(sr, np.ones(len(rets.T)), bounds=[(0, None)] * len(rets.T),
                           constraints={'fun': lambda w: sum(w) - 1, 'type': 'eq'},
-                          options={'xatol': 1e-8})
+                          options={'xatol': 1e-14})
 
         return result.x, -result.fun
 
@@ -229,3 +230,88 @@ def random_portfolio_testing(capital, rf, n_sims, prices, rets, volume, benchmar
         result_al_sharpe.append(history['AL Sharpe'])
 
     return result_normal_sharpe, result_al_sharpe
+
+
+class dynamic_backtesting:
+
+    def __init__(self, prices, volume, capital, rf, months):
+
+        self.prices = prices
+        self.volume = volume
+        self.months = months
+        self.capital = capital
+        self.rf = rf
+
+    def optimize_weights(self, prices: pd.DataFrame, volume: pd.DataFrame, n_sims: int,
+                         n_days: int, periods: int):
+
+        temp_data = prices.iloc[int(n_days * periods):int(n_days * (periods + 1)), :]
+        temp_rets = temp_data.pct_change().dropna()
+        temp_volume = volume.iloc[int(n_days * periods):int(n_days * (periods + 1)), :].iloc[-90:].fillna(0).mean()
+        last_prices = temp_data.iloc[int(n_days) - 1, :]
+
+        study_n = optuna.create_study(direction="minimize")
+        study_n.optimize(lambda trial: optimize_lmda(trial, temp_data, benchmark_SIC,
+                                                     temp_volume, temp_rets.cov(), self.capital, self.rf),
+                         n_trials=n_sims)
+
+        optimizer_1 = OptimizePortfolioWeights(returns=temp_rets, kernel=temp_rets.cov(), risk_free=self.rf)
+
+        w_sharpe, _ = optimizer_1.sharpe_scipy()
+        w_abl = study_n.best_trial.user_attrs["weights"]
+
+        return w_sharpe, w_abl
+
+    def simulation(self, n_sims: int):
+
+        n_days = round(len(self.prices) / round(len(self.prices) / 252 / (self.months / 12)), 0)
+        capital = self.capital
+
+        opt_data = self.prices.copy()
+        backtesting_data = opt_data.iloc[int(n_days):, :]
+        backtesting_rets = backtesting_data.pct_change().dropna()
+        backtesting_volume = self.volume
+
+        day_counter, periods_counter = 0, 0
+        sharpe, al = [capital], [capital]
+
+        w_sharpe, w_abl = self.optimize_weights(opt_data, backtesting_volume, n_sims, n_days, 0)
+        sharpe_fee, abl_fee = [capital * (1.16 * .00125)], [capital * (1.16 * .00125)]
+
+        for day in range(len(backtesting_data) - 1):
+
+            if day_counter < n_days:
+
+                sharpe.append(sharpe[-1] * (1 + sum(backtesting_rets.iloc[day, :] * w_sharpe)))
+                al.append(al[-1] * (1 + sum(backtesting_rets.iloc[day, :] * w_abl)))
+
+
+            else:
+
+                if periods_counter >= round(len(backtesting_data) / 252 / (self.months / 12), 0):
+                    break
+
+                temp_sharpe, temp_abl = w_sharpe, w_abl
+                w_sharpe, w_abl = self.optimize_weights(backtesting_data, backtesting_volume, n_sims, n_days, periods_counter)
+
+                sharpe_fee.append(sum(abs(w_sharpe - temp_sharpe) * sharpe[-1] * (1.16 * .00125)))
+                abl_fee.append(sum(abs(w_abl - temp_abl) * al[-1] * (1.16 * .00125)))
+
+                sharpe.append((sharpe[-1] - sharpe_fee[-1]) * (1 + sum(backtesting_rets.iloc[day, :] * w_sharpe)))
+                al.append((al[-1] - abl_fee[-1]) * (1 + sum(backtesting_rets.iloc[day, :] * w_abl)))
+
+                periods_counter += 1
+                day_counter = 0
+
+            day_counter += 1
+
+        df = pd.DataFrame()
+        df['Date'] = backtesting_data.index
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Sharpe'] = sharpe
+        df['Liquidity'] = al
+        df.set_index('Date', inplace=True)
+
+        fees = {'Sharpe Fee': sum(sharpe_fee), 'Liquidity Fee': sum(abl_fee)}
+
+        return df, fees
