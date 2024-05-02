@@ -40,4 +40,8 @@ daily_return=pd.DataFrame()
 daily_return['Sharpe Ratio']=sharpe_results.pct_change().dropna().values.flatten()*25200
 daily_return['Adjusted by Liquidity']=adjusted_sharpe.pct_change().dropna().values.flatten()*25200
 
-
+results_rebalance = pd.read_excel('SIC_data/results_rebalance.xlsx', index_col=0).T.iloc[:, 1:3]
+results_sharpe_rebalance = pd.read_excel('SIC_data/sharpe_results_rebalance.xlsx')
+results_AbL_rebalance = pd.read_excel('SIC_data/AbL_results_rebalance.xlsx')
+results_rebalance['Sharpe Ratio']=results_rebalance['Sharpe Ratio']/len(results_sharpe_rebalance)*252
+results_rebalance['Adjusted by Liquidity']=results_rebalance['Adjusted by Liquidity']/len(results_sharpe_rebalance)*252
