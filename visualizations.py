@@ -67,12 +67,11 @@ def plot_pie(w_1: np.array, w_2: np.array, labels: list):
     plt.legend(labels, loc='upper right')
     plt.show()
 
-
 def plot_simulation_hist(data):
     plt.figure(figsize=(12, 6))
-    plt.hist(data['Adjusted by Liquidity'], bins=1000, label='Adjusted-Liquidity Sharpe', alpha=0.5)
-    plt.hist(data['Sharpe Ratio'], bins=1000, label='Sharpe', alpha=0.5)
-    plt.xlim(-10, 200)
+    plt.hist(data['Adjusted by Liquidity'], bins=1500, label='Adjusted-Liquidity Sharpe', alpha=0.5)
+    plt.hist(data['Sharpe Ratio'], bins=1500, label='Sharpe', alpha=0.5)
+    plt.xlim(-50, 400)
     plt.legend()
     plt.title('Strategies Total Return Distribution')
     plt.xlabel('Expected Return')
