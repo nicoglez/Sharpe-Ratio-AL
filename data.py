@@ -45,3 +45,5 @@ results_sharpe_rebalance = pd.read_excel('SIC_data/sharpe_results_rebalance.xlsx
 results_AbL_rebalance = pd.read_excel('SIC_data/AbL_results_rebalance.xlsx')
 results_rebalance['Sharpe Ratio']=results_rebalance['Sharpe Ratio']/len(results_sharpe_rebalance)*252
 results_rebalance['Adjusted by Liquidity']=results_rebalance['Adjusted by Liquidity']/len(results_sharpe_rebalance)*252
+
+markets_results=pd.read_excel('SIC_data/markets_results.xlsx', index_col=0)/(252*4)*25200
