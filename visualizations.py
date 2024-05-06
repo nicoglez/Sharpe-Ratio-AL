@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.optimize import minimize
 import warnings
+from typing import Optional
 
 sns.set_style()
 warnings.filterwarnings("ignore")
@@ -67,11 +68,11 @@ def plot_pie(w_1: np.array, w_2: np.array, labels: list):
     plt.legend(labels, loc='upper right')
     plt.show()
 
-def plot_simulation_hist(data):
+def plot_simulation_hist(data, lims: Optional[tuple] = (-50, 400), bins: Optional[int] = 1500):
     plt.figure(figsize=(12, 6))
-    plt.hist(data['Adjusted by Liquidity'], bins=1500, label='Adjusted-Liquidity Sharpe', alpha=0.5)
-    plt.hist(data['Sharpe Ratio'], bins=1500, label='Sharpe', alpha=0.5)
-    plt.xlim(-50, 400)
+    plt.hist(data.iloc[:, 0], bins=bins, label=data.columns[0], alpha=0.5)
+    plt.hist(data.iloc[:, 1], bins=bins, label=data.columns[1], alpha=0.5)
+    plt.xlim(lims)
     plt.legend()
     plt.title('Strategies Total Return Distribution')
     plt.xlabel('Expected Return')
@@ -91,7 +92,10 @@ def plot_boxplot(simulation_data):
     column_names = list(simulation_data.columns)
 
     for i in range(len(column_names)):
-        plt.text(i + 1.1, means.iloc[i], f'$\mu$: {means.iloc[i]:,.2f}%', verticalalignment='bottom')
+        if means.iloc[i]>medians[i]+2 and i==0:
+            plt.text(i + 1.1, means.iloc[i]-30, f'$\mu$: {means.iloc[i]:,.2f}%', verticalalignment='bottom')
+        else:
+            plt.text(i + 1.1, means.iloc[i], f'$\mu$: {means.iloc[i]:,.2f}%', verticalalignment='bottom')
         plt.text(i + 1.1, medians[i], f'Q2: {medians[i]:,.2f}%', verticalalignment='bottom')
         plt.text(i + 1.1, q1s[i], f'Q1: {q1s[i]:,.2f}%', verticalalignment='bottom')
         plt.text(i + 1.1, q3s[i], f'Q3: {q3s[i]:,.2f}%', verticalalignment='bottom')
