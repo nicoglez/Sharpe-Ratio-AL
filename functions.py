@@ -4,7 +4,46 @@ from scipy.optimize import minimize
 from backtesting import backtesting
 from data import benchmark_SIC
 import optuna
+import yfinance as yf
 optuna.logging.disable_default_handler()
+
+
+class download_data_NYSE:
+
+    def __init__(self, start_date: str, end_date: str, tickers_USA: list):
+        self.USA = tickers_USA
+        self.start = start_date
+        self.end = end_date
+
+    def download(self) -> tuple:
+
+        # download USA data
+        closes = pd.DataFrame(yf.download(self.USA, start=self.start, end=self.end, progress=False)["Adj Close"])
+        closes.reset_index(inplace=True)
+        closes['Date'] = closes['Date'].dt.tz_localize(None)
+        # download USD/MXN data
+        closes_TC = pd.DataFrame(yf.download("MXN=X", start=self.start, end=self.end, progress=False)["Adj Close"])
+        closes_TC.reset_index(inplace=True)
+        closes_TC['Date'] = closes_TC['Date'].dt.tz_localize(None)
+        closes_TC.set_index("Date", inplace=True)
+        # join
+        closes = closes.join(closes_TC, on="Date", how="left")
+        # multiply exchange rate and prices
+        final = pd.DataFrame()
+        for i in closes.columns:
+            if i == "Date":
+                final[i] = closes.Date
+
+            elif i == "Adj Close":
+                pass
+
+            else:
+                final[i] = closes[i] * closes["Adj Close"]
+
+        final.set_index("Date", inplace=True)
+
+
+        return final
 
 # Optimize Weights Class
 class OptimizePortfolioWeights:
@@ -315,3 +354,4 @@ class dynamic_backtesting:
         fees = {'Sharpe Fee': sum(sharpe_fee), 'Liquidity Fee': sum(abl_fee)}
 
         return df, fees
+
